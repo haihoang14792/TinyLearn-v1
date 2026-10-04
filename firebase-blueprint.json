@@ -1,0 +1,126 @@
+{
+  "entities": {
+    "Game": {
+      "title": "TopicGame",
+      "description": "Preschool lesson game with illustrated cards, questions, and audio prompts",
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the game"
+        },
+        "title": {
+          "type": "string",
+          "description": "Title of the educational game"
+        },
+        "topic": {
+          "type": "string",
+          "description": "Preschool lesson topic"
+        },
+        "category": {
+          "type": "string",
+          "description": "Category like fruits, animals, vehicles"
+        },
+        "ageRange": {
+          "type": "string",
+          "description": "Age range such as 12–24 tháng"
+        },
+        "gameType": {
+          "type": "string",
+          "description": "Interactive play mode type"
+        },
+        "description": {
+          "type": "string",
+          "description": "Detailed pedagogical description"
+        },
+        "choicesCount": {
+          "type": "number",
+          "description": "Number of card choices per round (2 or 3)"
+        },
+        "puzzlePieces": {
+          "type": "number",
+          "description": "Number of jigsaw pieces (2, 3, 4, 6)"
+        },
+        "createdAt": {
+          "type": "number",
+          "description": "Timestamp when game was created"
+        }
+      },
+      "required": ["id", "title", "topic", "gameType", "createdAt"]
+    },
+    "Child": {
+      "title": "ChildProfile",
+      "description": "Preschool child profile and classroom identity",
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique child identifier"
+        },
+        "fullName": {
+          "type": "string",
+          "description": "Full name or nickname of the child"
+        },
+        "avatarEmoji": {
+          "type": "string",
+          "description": "Avatar icon or emoji"
+        },
+        "birthDate": {
+          "type": "string",
+          "description": "Optional date of birth"
+        },
+        "createdAt": {
+          "type": "number",
+          "description": "Timestamp when profile was created"
+        }
+      },
+      "required": ["id", "fullName", "avatarEmoji"]
+    },
+    "Progress": {
+      "title": "ChildProgress",
+      "description": "Learning activity progress and stars",
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique progress log identifier"
+        },
+        "gameId": {
+          "type": "string",
+          "description": "ID of the completed game"
+        },
+        "childId": {
+          "type": "string",
+          "description": "ID of the child"
+        },
+        "attempts": {
+          "type": "number",
+          "description": "Total attempts count"
+        },
+        "completed": {
+          "type": "number",
+          "description": "Number of successful completions"
+        },
+        "lastPlayedAt": {
+          "type": "number",
+          "description": "Timestamp of last activity"
+        }
+      },
+      "required": ["id", "gameId"]
+    }
+  },
+  "firestore": {
+    "/games/{gameId}": {
+      "schema": "Game",
+      "description": "Collection of preschool lesson games created by teachers"
+    },
+    "/children/{childId}": {
+      "schema": "Child",
+      "description": "Preschool class children profiles"
+    },
+    "/progress/{progressId}": {
+      "schema": "Progress",
+      "description": "Classroom learning progress statistics"
+    }
+  }
+}

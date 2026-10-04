@@ -1,0 +1,6 @@
+{
+  "name": "TinyLearn - Bé Nghe Và Tìm",
+  "description": "Trò chơi tương tác mầm non cho trẻ 12-24 tháng tuổi nghe âm thanh và chọn hình đúng, kèm bảng tạo trò chơi cho giáo viên.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

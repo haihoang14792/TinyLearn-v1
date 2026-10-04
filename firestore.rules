@@ -1,0 +1,45 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Default deny all unknown paths
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    function isValidId(id) {
+      return id is string && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    // Health check & connection validation document
+    match /test/connection {
+      allow read: if true;
+    }
+
+    // Preschool lesson games
+    match /games/{gameId} {
+      allow read: if isValidId(gameId);
+      allow create, update: if isValidId(gameId)
+        && request.resource.data.title is string
+        && request.resource.data.title.size() <= 200
+        && request.resource.data.topic is string
+        && request.resource.data.topic.size() <= 200;
+      allow delete: if isValidId(gameId);
+    }
+
+    // Classroom children profiles
+    match /children/{childId} {
+      allow read: if isValidId(childId);
+      allow create, update: if isValidId(childId)
+        && request.resource.data.fullName is string
+        && request.resource.data.fullName.size() <= 100;
+      allow delete: if isValidId(childId);
+    }
+
+    // Classroom learning progress statistics
+    match /progress/{progressId} {
+      allow read: if isValidId(progressId);
+      allow create, update: if isValidId(progressId);
+      allow delete: if isValidId(progressId);
+    }
+  }
+}
