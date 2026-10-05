@@ -21,8 +21,10 @@ import {
   Award,
   ChevronRight,
   Trash2,
+  Volume2,
 } from 'lucide-react';
 import { TopicGame, PreschoolSettings, ChildProfile, LessonPlan } from '../types.ts';
+import { audioManager } from '../services/audioManager.ts';
 
 interface TeacherDashboardProps {
   games: TopicGame[];
@@ -64,6 +66,20 @@ export const TeacherDashboard: React.FC<TeacherDashboardProps> = ({
   onImportBackup,
 }) => {
   const [quickPrompt, setQuickPrompt] = useState('');
+  const [isTestingAudio, setIsTestingAudio] = useState(false);
+
+  const handleTestSpeaker = () => {
+    setIsTestingAudio(true);
+    audioManager.unlockAudio();
+    audioManager.playVoice(
+      'Xin chào cô giáo! Hệ thống âm thanh TinyLearn đã sẵn sàng hoạt động rất tốt!',
+      undefined,
+      {
+        onEnd: () => setIsTestingAudio(false),
+        onError: () => setIsTestingAudio(false),
+      }
+    );
+  };
 
   const handleQuickCreate = (e?: React.FormEvent) => {
     if (e) e.preventDefault();
@@ -137,6 +153,19 @@ export const TeacherDashboard: React.FC<TeacherDashboardProps> = ({
                 {prompt}
               </button>
             ))}
+
+            {/* Audio Test button */}
+            <button
+              type="button"
+              onClick={handleTestSpeaker}
+              className={`px-3 py-1 bg-amber-950 text-white font-black rounded-xl transition-all shadow-2xs hover:scale-105 cursor-pointer flex items-center gap-1.5 ml-auto sm:ml-2 ${
+                isTestingAudio ? 'bg-emerald-600 ring-2 ring-emerald-300 animate-pulse' : 'hover:bg-amber-900'
+              }`}
+              title="Nhấn để kiểm tra loa và kích hoạt âm thanh"
+            >
+              <Volume2 className={`w-3.5 h-3.5 ${isTestingAudio ? 'animate-bounce' : ''}`} />
+              <span>{isTestingAudio ? 'Đang phát...' : '🔊 Thử loa & giọng nói'}</span>
+            </button>
           </div>
         </div>
       </section>

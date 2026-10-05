@@ -1,16 +1,17 @@
 /**
  * ====================================================================
- * TINYLEARN AUDIO MANAGER (GLOBAL AUDIO AUTHORITY)
+ * TINYLEARN AUDIO MANAGER (GLOBAL AUDIO AUTHORITY - VERCEL & MOBILE TUNED)
  * ====================================================================
  * 
  * CORE RULES:
  * 1. Single source of audio: Only one audio stream plays at a time.
  *    Any new playAudio() or speak() call immediately stops the previous one.
- * 2. 3-Tier Priority System:
- *    - Priority 1: Pre-recorded Vietnamese MP3 audio file (audioUrl).
- *    - Priority 2: High quality native Vietnamese female audio from /api/tts.
- *    - Priority 3: Browser Web Speech API via speechService.
- * 3. Mobile Audio Unlock: Handles audio context initialization on user gesture.
+ * 2. 4-Tier Bulletproof Priority System:
+ *    - Tier 1: Pre-recorded Vietnamese MP3 audio file (audioUrl).
+ *    - Tier 2A: High quality native Vietnamese female audio from /api/tts (Vercel Serverless Function or Express).
+ *    - Tier 2B: Direct browser Google Translate Vietnamese TTS MP3 stream (zero-server client fallback).
+ *    - Tier 3: Browser Web Speech API via speechService (fallback to lang="vi-VN" if device has no explicit voice name).
+ * 3. Mobile Audio Unlock: Actively primes AudioContext, HTMLAudioElement, and SpeechSynthesis on first user touch/click.
  * 4. Friendly Toddler Sound Effects (Pop, Chime, Fanfare, Correct, Try Again).
  */
 
@@ -23,18 +24,21 @@ import {
   getVietnameseVoices,
   hasVietnameseVoice,
   loadVoices,
+  unlockSpeechSynthesis,
   SpeakOptions,
 } from './speechService.ts';
 
 export interface PlayVoiceOptions extends SpeakOptions {
-  preferServerAudio?: boolean; // Try /api/tts before falling back to browser speech
+  preferServerAudio?: boolean; // Try server/direct audio before falling back to browser speech
 }
 
 class AudioManager {
   private currentAudioElement: HTMLAudioElement | null = null;
   private audioContext: AudioContext | null = null;
   private isUnlocked = false;
+  private isServerTtsAvailable: boolean | null = null; // null = untested, true = available, false = failed
   private serverAudioCache = new Map<string, string>();
+  private unlockListenersAttached = false;
 
   constructor() {
     if (typeof window !== 'undefined') {
@@ -43,31 +47,78 @@ class AudioManager {
   }
 
   /**
-   * Unlocks Web Audio on mobile touch/click
+   * Complete unlock for Web Audio, HTMLAudio, and SpeechSynthesis on mobile/desktop
    */
-  private setupMobileUnlockListener() {
-    const unlock = () => {
-      if (this.isUnlocked) return;
-      try {
-        const AudioCtx = window.AudioContext || (window as any).webkitAudioContext;
-        if (AudioCtx) {
-          if (!this.audioContext) {
-            this.audioContext = new AudioCtx();
-          }
-          if (this.audioContext.state === 'suspended') {
-            this.audioContext.resume();
-          }
+  public unlockAudio(): void {
+    if (typeof window === 'undefined') return;
+    if (this.isUnlocked) return;
+
+    try {
+      // 1. Unlock Web Audio Context
+      const AudioCtx = window.AudioContext || (window as any).webkitAudioContext;
+      if (AudioCtx) {
+        if (!this.audioContext) {
+          this.audioContext = new AudioCtx();
         }
-        this.isUnlocked = true;
+        if (this.audioContext.state === 'suspended') {
+          this.audioContext.resume().catch(() => {});
+        }
+
+        // Play silent 1ms buffer to prime iOS audio hardware
+        try {
+          const buffer = this.audioContext.createBuffer(1, 1, 22050);
+          const source = this.audioContext.createBufferSource();
+          source.buffer = buffer;
+          source.connect(this.audioContext.destination);
+          source.start(0);
+        } catch {
+          // Ignore
+        }
+      }
+
+      // 2. Unlock HTMLAudioElement with silent wav
+      try {
+        const silentAudio = new Audio(
+          'data:audio/wav;base64,UklGRigAAABXQVZFZm10IBAAAAABAAEARKwAAIhYAQACABAAZGF0YQQAAAAAAA=='
+        );
+        silentAudio.volume = 0;
+        const p = silentAudio.play();
+        if (p !== undefined) {
+          p.then(() => {
+            silentAudio.pause();
+            silentAudio.remove();
+          }).catch(() => {});
+        }
       } catch {
         // Ignore
       }
-      window.removeEventListener('touchstart', unlock);
-      window.removeEventListener('click', unlock);
+
+      // 3. Unlock Web Speech API
+      unlockSpeechSynthesis();
+
+      this.isUnlocked = true;
+    } catch {
+      // Ignore
+    }
+  }
+
+  /**
+   * Listens for first touch/click to unlock audio subsystem
+   */
+  private setupMobileUnlockListener() {
+    if (this.unlockListenersAttached || typeof window === 'undefined') return;
+    this.unlockListenersAttached = true;
+
+    const unlockHandler = () => {
+      this.unlockAudio();
+      ['touchstart', 'touchend', 'click', 'pointerdown', 'keydown'].forEach((evt) => {
+        window.removeEventListener(evt, unlockHandler);
+      });
     };
 
-    window.addEventListener('touchstart', unlock, { passive: true });
-    window.addEventListener('click', unlock, { passive: true });
+    ['touchstart', 'touchend', 'click', 'pointerdown', 'keydown'].forEach((evt) => {
+      window.addEventListener(evt, unlockHandler, { passive: true, capture: true });
+    });
   }
 
   /**
@@ -152,6 +203,9 @@ class AudioManager {
         if (playPromise !== undefined) {
           playPromise.catch((err) => {
             console.warn('[TinyLearn Audio] Autoplay prevented or aborted:', err);
+            if (this.currentAudioElement === audio) {
+              this.currentAudioElement = null;
+            }
             onEnd?.();
             resolve(null);
           });
@@ -174,10 +228,11 @@ class AudioManager {
   }
 
   /**
-   * 3-TIER PRIORITY VOICE PLAYBACK:
-   * - Priority 1: If audioUrl exists, play the pre-recorded MP3 file.
-   * - Priority 2: If preferServerAudio is true, attempt /api/tts for authentic Vietnamese female teacher voice.
-   * - Priority 3: Fall back to client Web Speech API with native Vietnamese female voice.
+   * BULLETPROOF 4-TIER VOICE PLAYBACK:
+   * - Tier 1: If audioUrl exists, play the pre-recorded MP3 file.
+   * - Tier 2A: High quality native Vietnamese female audio from /api/tts (Vercel Serverless Function or Express).
+   * - Tier 2B: Direct browser Google Translate Vietnamese TTS stream (zero-backend fallback).
+   * - Tier 3: Browser Web Speech API via speechService.
    */
   public async playVoice(
     rawText: string,
@@ -196,8 +251,8 @@ class AudioManager {
       return;
     }
 
-    // TIER 2: High Quality Server-Side Vietnamese TTS (if requested / available)
-    if (options.preferServerAudio !== false) {
+    // TIER 2A: High Quality Server-Side Vietnamese TTS (/api/tts on Vercel / Express)
+    if (options.preferServerAudio !== false && this.isServerTtsAvailable !== false) {
       const cacheKey = text.toLowerCase();
       if (this.serverAudioCache.has(cacheKey)) {
         const cachedUrl = this.serverAudioCache.get(cacheKey)!;
@@ -205,10 +260,9 @@ class AudioManager {
         return;
       }
 
-      // Try fetching authentic Vietnamese teacher voice from backend
       try {
         const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), 2500); // 2.5s quick timeout
+        const timeoutId = setTimeout(() => controller.abort(), 1600); // 1.6s timeout to preserve user interaction
 
         const res = await fetch('/api/tts', {
           method: 'POST',
@@ -222,16 +276,36 @@ class AudioManager {
           const data = await res.json();
           if (data && data.audioUrl && !data.fallback) {
             this.serverAudioCache.set(cacheKey, data.audioUrl);
+            this.isServerTtsAvailable = true;
             await this.playAudio(data.audioUrl, options.onEnd);
             return;
           }
+        } else {
+          // If 404 or 500, mark server as unavailable temporarily
+          this.isServerTtsAvailable = false;
+          setTimeout(() => {
+            this.isServerTtsAvailable = null; // Re-check after 1 minute
+          }, 60000);
         }
       } catch {
-        // Network offline or timeout, proceed to Tier 3
+        // Network timeout or offline, fall through to Tier 2B
       }
     }
 
-    // TIER 3: Client Browser Web Speech API
+    // TIER 2B: Direct Google Translate TTS Audio (Works on static Vercel without server!)
+    if (typeof window !== 'undefined' && text.length <= 160) {
+      try {
+        const directUrl = `https://translate.google.com/translate_tts?ie=UTF-8&tl=vi&client=tw-ob&q=${encodeURIComponent(text)}`;
+        const playedAudio = await this.playAudio(directUrl, options.onEnd);
+        if (playedAudio) {
+          return;
+        }
+      } catch {
+        // Fall through to Tier 3
+      }
+    }
+
+    // TIER 3: Browser Web Speech API
     this.speak(text, options);
   }
 
@@ -335,6 +409,10 @@ class AudioManager {
   public playFanfare() {
     this.playSfx('fanfare');
   }
+
+  public isAudioContextUnlocked(): boolean {
+    return this.isUnlocked;
+  }
 }
 
 // Global Singleton Instance
@@ -350,4 +428,5 @@ export {
   normalizeTextForSpeech,
   stopSpeaking,
   speakVietnamese,
+  unlockSpeechSynthesis,
 };

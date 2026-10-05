@@ -382,18 +382,23 @@ export function speakVietnamese(rawText: string, options: SpeakOptions = {}): bo
   const synth = window.speechSynthesis;
   const bestVoice = getBestVietnameseVoice();
 
-  // If no Vietnamese voice on device: NEVER speak using English voice!
-  if (!bestVoice) {
-    const errorMsg = 'Thiết bị hiện tại chưa có giọng đọc tiếng Việt phù hợp.';
-    console.warn('[TinyLearn Speech]', errorMsg);
-    options.onError?.(new Error(errorMsg));
-    return false;
-  }
-
   try {
     const utterance = new SpeechSynthesisUtterance(text);
-    utterance.voice = bestVoice;
-    utterance.lang = bestVoice.lang || 'vi-VN';
+    if (bestVoice) {
+      utterance.voice = bestVoice;
+      utterance.lang = bestVoice.lang || 'vi-VN';
+    } else {
+      // Find any Vietnamese voice in list
+      const anyViVoice = getVietnameseVoices()[0];
+      if (anyViVoice) {
+        utterance.voice = anyViVoice;
+        utterance.lang = anyViVoice.lang || 'vi-VN';
+      } else {
+        // Fallback: don't block speech if getVoices() is empty or hasn't loaded!
+        // Setting lang to 'vi-VN' allows Chrome/Edge/Safari/Android to synthesize via OS/Network TTS
+        utterance.lang = 'vi-VN';
+      }
+    }
 
     // Rate: user preference or 0.85
     const targetRate = options.rate !== undefined ? options.rate : getPreferredSpeechRate();
@@ -453,6 +458,21 @@ export function speakVietnamese(rawText: string, options: SpeakOptions = {}): bo
     console.warn('[TinyLearn Speech] Speech dispatch exception:', err);
     options.onError?.(err);
     return false;
+  }
+}
+
+/**
+ * Primes and unlocks Web Speech API on iOS Safari / Android Chrome during a user gesture.
+ */
+export function unlockSpeechSynthesis(): void {
+  if (!isSpeechSupported()) return;
+  try {
+    const silent = new SpeechSynthesisUtterance(' ');
+    silent.volume = 0.01;
+    silent.rate = 2;
+    window.speechSynthesis.speak(silent);
+  } catch {
+    // Ignore unlock errors
   }
 }
 
