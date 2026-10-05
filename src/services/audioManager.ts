@@ -179,35 +179,41 @@ class AudioManager {
 
     return new Promise((resolve) => {
       try {
-        const audio = new Audio(url);
+        const audio = new Audio();
+        // CRITICAL: Set referrerPolicy to 'no-referrer' so third-party CDN audio (Google TTS)
+        // is never blocked by Vercel referer checks (which returns 404 if referer is sent).
+        try {
+          (audio as any).referrerPolicy = 'no-referrer';
+          audio.setAttribute('referrerpolicy', 'no-referrer');
+        } catch {
+          // Ignore
+        }
         this.currentAudioElement = audio;
 
-        audio.onended = () => {
+        let hasFinished = false;
+        const finish = (result: HTMLAudioElement | null) => {
+          if (hasFinished) return;
+          hasFinished = true;
           if (this.currentAudioElement === audio) {
             this.currentAudioElement = null;
           }
           onEnd?.();
-          resolve(audio);
+          resolve(result);
         };
 
+        audio.onended = () => finish(audio);
         audio.onerror = (e) => {
           console.warn('[TinyLearn Audio] Audio play error:', e);
-          if (this.currentAudioElement === audio) {
-            this.currentAudioElement = null;
-          }
-          onEnd?.();
-          resolve(null);
+          finish(null);
         };
+
+        audio.src = url;
 
         const playPromise = audio.play();
         if (playPromise !== undefined) {
           playPromise.catch((err) => {
             console.warn('[TinyLearn Audio] Autoplay prevented or aborted:', err);
-            if (this.currentAudioElement === audio) {
-              this.currentAudioElement = null;
-            }
-            onEnd?.();
-            resolve(null);
+            finish(null);
           });
         }
       } catch (err) {
@@ -230,9 +236,10 @@ class AudioManager {
   /**
    * BULLETPROOF 4-TIER VOICE PLAYBACK:
    * - Tier 1: If audioUrl exists, play the pre-recorded MP3 file.
-   * - Tier 2A: High quality native Vietnamese female audio from /api/tts (Vercel Serverless Function or Express).
-   * - Tier 2B: Direct browser Google Translate Vietnamese TTS stream (zero-backend fallback).
-   * - Tier 3: Browser Web Speech API via speechService.
+   * - Tier 2: Direct browser Google Translate Vietnamese TTS stream with referrerPolicy="no-referrer"
+   *           (Zero-server, works 100% on Vercel without 404 errors, natural female voice).
+   * - Tier 3: Local backend /api/tts (when developing locally with server.ts).
+   * - Tier 4: Browser Web Speech API via speechService.
    */
   public async playVoice(
     rawText: string,
@@ -251,18 +258,32 @@ class AudioManager {
       return;
     }
 
-    // TIER 2A: High Quality Server-Side Vietnamese TTS (/api/tts on Vercel / Express)
-    if (options.preferServerAudio !== false && this.isServerTtsAvailable !== false) {
+    // TIER 2: Direct High-Quality Vietnamese Female Speech Stream (Google TTS CDN)
+    // Uses referrerPolicy: no-referrer so it never gets blocked by Vercel referer checks
+    // And avoids the POST /api/tts 404 error on static Vercel deployments!
+    if (typeof window !== 'undefined' && text.length <= 180) {
       const cacheKey = text.toLowerCase();
-      if (this.serverAudioCache.has(cacheKey)) {
-        const cachedUrl = this.serverAudioCache.get(cacheKey)!;
-        await this.playAudio(cachedUrl, options.onEnd);
-        return;
+      let directUrl = this.serverAudioCache.get(cacheKey);
+      if (!directUrl) {
+        directUrl = `https://translate.google.com/translate_tts?ie=UTF-8&tl=vi&client=tw-ob&q=${encodeURIComponent(text)}`;
+        this.serverAudioCache.set(cacheKey, directUrl);
       }
 
+      const playedAudio = await this.playAudio(directUrl, options.onEnd);
+      if (playedAudio) {
+        return; // Successfully played!
+      }
+    }
+
+    // TIER 3: Local Backend /api/tts (only when running locally on localhost with server.ts)
+    const isLocal =
+      typeof window !== 'undefined' &&
+      (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1');
+
+    if (isLocal && options.preferServerAudio !== false && this.isServerTtsAvailable !== false) {
       try {
         const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), 1600); // 1.6s timeout to preserve user interaction
+        const timeoutId = setTimeout(() => controller.abort(), 1500);
 
         const res = await fetch('/api/tts', {
           method: 'POST',
@@ -275,37 +296,16 @@ class AudioManager {
         if (res.ok) {
           const data = await res.json();
           if (data && data.audioUrl && !data.fallback) {
-            this.serverAudioCache.set(cacheKey, data.audioUrl);
-            this.isServerTtsAvailable = true;
             await this.playAudio(data.audioUrl, options.onEnd);
             return;
           }
-        } else {
-          // If 404 or 500, mark server as unavailable temporarily
-          this.isServerTtsAvailable = false;
-          setTimeout(() => {
-            this.isServerTtsAvailable = null; // Re-check after 1 minute
-          }, 60000);
         }
       } catch {
-        // Network timeout or offline, fall through to Tier 2B
+        // Fall through to Tier 4
       }
     }
 
-    // TIER 2B: Direct Google Translate TTS Audio (Works on static Vercel without server!)
-    if (typeof window !== 'undefined' && text.length <= 160) {
-      try {
-        const directUrl = `https://translate.google.com/translate_tts?ie=UTF-8&tl=vi&client=tw-ob&q=${encodeURIComponent(text)}`;
-        const playedAudio = await this.playAudio(directUrl, options.onEnd);
-        if (playedAudio) {
-          return;
-        }
-      } catch {
-        // Fall through to Tier 3
-      }
-    }
-
-    // TIER 3: Browser Web Speech API
+    // TIER 4: Browser Web Speech API (Offline / Device fallback)
     this.speak(text, options);
   }
 

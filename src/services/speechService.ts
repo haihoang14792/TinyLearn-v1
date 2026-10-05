@@ -233,9 +233,6 @@ export function getBestVietnameseVoice(): SpeechSynthesisVoice | null {
   const viVoices = getVietnameseVoices();
 
   if (viVoices.length === 0) {
-    if (typeof console !== 'undefined') {
-      console.warn('Không tìm thấy giọng tiếng Việt trên thiết bị.');
-    }
     return null;
   }
 
