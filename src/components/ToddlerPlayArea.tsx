@@ -57,7 +57,7 @@ export const ToddlerPlayArea: React.FC<ToddlerPlayAreaProps> = ({
   const [starsWon, setStarsWon] = useState<number[]>([]);
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [showCelebrationBanner, setShowCelebrationBanner] = useState(false);
-  const [choicesCount, setChoicesCount] = useState<2 | 3>(game.choicesCount || 3);
+  const [choicesCount, setChoicesCount] = useState<number>(game.choicesCount || 3);
   const [activeGameType, setActiveGameType] = useState<GameType>(game.gameType || 'listen_find');
   const [puzzlePieceCount, setPuzzlePieceCount] = useState<PieceCount>(game.puzzlePieces || 4);
   const [team1Score, setTeam1Score] = useState(0);
@@ -173,24 +173,44 @@ export const ToddlerPlayArea: React.FC<ToddlerPlayAreaProps> = ({
     setShowHintPulse(false);
     setIsWaitingForNextRep(false);
 
-    // Pick distractors: ensure they are distinct in name from target item
-    const otherDistinctItems = game.items.filter(
-      (it) => it.id !== target.id && it.name.trim().toLowerCase() !== target.name.trim().toLowerCase()
-    );
-    const shuffledOthers = [...otherDistinctItems].sort(() => Math.random() - 0.5);
-    const targetDistractorCount = choicesCount === 2 ? 1 : 2;
+    // If item has custom choices configured by teacher, use them directly
+    if (target.choices && target.choices.length > 0) {
+      let mappedChoices: TopicItem[] = target.choices.map((c) => ({
+        id: c.isCorrect ? target.id : c.id,
+        name: c.name,
+        imageUrl: c.imageUrl,
+        soundText: '',
+        questionText: target.questionText,
+        bgColor: c.bgColor || '#FEF3C7',
+      }));
 
-    let roundDistractors: TopicItem[] = shuffledOthers.slice(0, targetDistractorCount);
+      if (game.shuffleChoices !== false) {
+        mappedChoices = [...mappedChoices].sort(() => Math.random() - 0.5);
+      }
+      setDisplayChoices(mappedChoices);
+    } else {
+      // Pick distractors: ensure they are distinct in name from target item
+      const otherDistinctItems = game.items.filter(
+        (it) => it.id !== target.id && it.name.trim().toLowerCase() !== target.name.trim().toLowerCase()
+      );
+      const shuffledOthers = [...otherDistinctItems].sort(() => Math.random() - 0.5);
+      const targetDistractorCount = Math.max(1, choicesCount - 1);
 
-    // If game items are all on the same subject (e.g. Quả Cà Chua), pull distinct distractors from preschool library
-    if (roundDistractors.length < targetDistractorCount) {
-      const extraNeeded = targetDistractorCount - roundDistractors.length;
-      const extras = getFallbackDistractors(target.name, extraNeeded);
-      roundDistractors = [...roundDistractors, ...(extras as TopicItem[])];
+      let roundDistractors: TopicItem[] = shuffledOthers.slice(0, targetDistractorCount);
+
+      // If game items are all on the same subject (e.g. Quả Cà Chua), pull distinct distractors from preschool library
+      if (roundDistractors.length < targetDistractorCount) {
+        const extraNeeded = targetDistractorCount - roundDistractors.length;
+        const extras = getFallbackDistractors(target.name, extraNeeded);
+        roundDistractors = [...roundDistractors, ...(extras as TopicItem[])];
+      }
+
+      let roundChoices = [target, ...roundDistractors];
+      if (game.shuffleChoices !== false) {
+        roundChoices = roundChoices.sort(() => Math.random() - 0.5);
+      }
+      setDisplayChoices(roundChoices);
     }
-
-    const roundChoices = [target, ...roundDistractors].sort(() => Math.random() - 0.5);
-    setDisplayChoices(roundChoices);
 
     // If 'Who Disappeared?', initiate peek-a-boo hiding sequence
     if (game.gameType === 'who_disappeared') {
@@ -291,7 +311,16 @@ export const ToddlerPlayArea: React.FC<ToddlerPlayAreaProps> = ({
     }
 
     // CHECK CORRECT ANSWER
-    if (item.id === correctItem.id) {
+    const isCorrectChoice =
+      item.id === correctItem.id ||
+      (correctItem.choices &&
+        correctItem.choices.some(
+          (c) =>
+            (c.id === item.id || c.name.trim().toLowerCase() === item.name.trim().toLowerCase()) &&
+            c.isCorrect
+        ));
+
+    if (isCorrectChoice) {
       selectedCorrectRef.current = item.id;
       audioEngine.stopAll();
       setShowHintPulse(false);
@@ -776,10 +805,12 @@ export const ToddlerPlayArea: React.FC<ToddlerPlayAreaProps> = ({
 
               {/* 2 OR 3 LARGE ILLUSTRATED CARDS */}
               <div
-                className={`w-full grid gap-4 sm:gap-8 px-2 max-w-4xl mx-auto items-stretch ${
+                className={`w-full grid gap-4 sm:gap-6 px-2 mx-auto items-stretch ${
                   displayChoices.length === 2
                     ? 'grid-cols-2 max-w-2xl'
-                    : 'grid-cols-1 sm:grid-cols-3'
+                    : displayChoices.length === 3
+                    ? 'grid-cols-1 sm:grid-cols-3 max-w-3xl'
+                    : 'grid-cols-2 sm:grid-cols-4 max-w-4xl'
                 }`}
               >
                 {displayChoices.map((item) => {

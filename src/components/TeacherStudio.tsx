@@ -76,7 +76,7 @@ export const TeacherStudio: React.FC<TeacherStudioProps> = ({
   const [formTopic, setFormTopic] = useState('Đồ dùng & Con vật');
   const [formGameType, setFormGameType] = useState<GameType>('listen_find');
   const [formPuzzlePieces, setFormPuzzlePieces] = useState<2 | 3 | 4 | 6>(4);
-  const [formChoicesCount, setFormChoicesCount] = useState<2 | 3>(3);
+  const [formChoicesCount, setFormChoicesCount] = useState<number>(3);
   const [formItems, setFormItems] = useState<TopicItem[]>([
     {
       id: 'item-1',

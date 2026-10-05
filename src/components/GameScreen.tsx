@@ -31,6 +31,7 @@ interface GameScreenProps {
   questionCount: number; // 5 | 10 | 15
   difficulty: 'easy' | 'medium' | 'hard'; // 2 | 3 | 4
   soundEnabled: boolean;
+  shuffleChoices?: boolean;
   onGoHome: () => void;
   onChangeTopic: () => void;
 }
@@ -41,6 +42,7 @@ export const GameScreen: React.FC<GameScreenProps> = ({
   questionCount,
   difficulty,
   soundEnabled: initialSoundEnabled,
+  shuffleChoices = true,
   onGoHome,
   onChangeTopic,
 }) => {
@@ -121,7 +123,16 @@ export const GameScreen: React.FC<GameScreenProps> = ({
     }
 
     const distractors = pool.slice(0, choicesCount - 1);
-    const combined = [target, ...distractors].sort(() => Math.random() - 0.5);
+    let combined = [target, ...distractors];
+
+    // Thực hiện shuffle mảng choices trước khi render nếu bật xáo trộn
+    if (shuffleChoices) {
+      // Fisher-Yates algorithm for uniform random distribution
+      for (let i = combined.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [combined[i], combined[j]] = [combined[j], combined[i]];
+      }
+    }
 
     setRoundChoices(combined);
     setSelectedStatus({});

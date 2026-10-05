@@ -23,6 +23,7 @@ interface TeacherSetupProps {
     questionCount: number;
     difficulty: 'easy' | 'medium' | 'hard';
     soundEnabled: boolean;
+    shuffleChoices?: boolean;
   }) => void;
   onGoHome: () => void;
   onOpenAdvancedStudio: () => void;
@@ -40,6 +41,7 @@ export const TeacherSetup: React.FC<TeacherSetupProps> = ({
   const [selectedQuestionCount, setSelectedQuestionCount] = useState<number>(5);
   const [selectedDifficulty, setSelectedDifficulty] = useState<'easy' | 'medium' | 'hard'>('medium');
   const [soundEnabled, setSoundEnabled] = useState<boolean>(true);
+  const [shuffleChoices, setShuffleChoices] = useState<boolean>(false);
 
   // Toggle history screen
   const [showHistory, setShowHistory] = useState(false);
@@ -59,6 +61,7 @@ export const TeacherSetup: React.FC<TeacherSetupProps> = ({
       questionCount: selectedQuestionCount,
       difficulty: selectedDifficulty,
       soundEnabled,
+      shuffleChoices,
     });
   };
 
@@ -230,7 +233,12 @@ export const TeacherSetup: React.FC<TeacherSetupProps> = ({
                     type="button"
                     onClick={() => {
                       setSelectedAge(a.id as any);
-                      if (a.id === '12-18') setSelectedDifficulty('easy');
+                      if (a.id === '12-18') {
+                        setSelectedDifficulty('easy');
+                        setShuffleChoices(false);
+                      } else {
+                        setShuffleChoices(true);
+                      }
                     }}
                     className={`p-2.5 rounded-xl border-2 text-center transition-all cursor-pointer ${
                       selectedAge === a.id

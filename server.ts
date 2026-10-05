@@ -299,9 +299,50 @@ const PRESET_TOPIC_ITEMS: Record<string, any[]> = {
   ],
 };
 
-function generateFallbackGame(topic: string, ageRange: string, count: number, gameType: string, goal?: string) {
+function generateFallbackGame(
+  topic: string,
+  ageRange: string,
+  count: number,
+  gameType: string,
+  goal?: string,
+  choicesCount: number = 2
+) {
+  const safeChoicesCount = Math.max(2, Math.min(choicesCount || 2, 6));
   const rawTopic = (topic || '').trim();
   const lower = rawTopic.toLowerCase();
+
+  const getChoicesForItem = (targetName: string, targetSvgKey: string, targetBg: string) => {
+    const distractors = [
+      { name: 'Quả Chuối', key: 'banana', bg: '#FEF9C3' },
+      { name: 'Quả Táo', key: 'apple', bg: '#FEE2E2' },
+      { name: 'Quả Cam', key: 'orange', bg: '#FFEDD5' },
+      { name: 'Củ Cà Rốt', key: 'carrot', bg: '#FFEDD5' },
+      { name: 'Bạn Mèo', key: 'cat', bg: '#FFF7ED' },
+      { name: 'Bạn Chó', key: 'dog', bg: '#FEF3C7' },
+      { name: 'Bạn Vịt', key: 'duck', bg: '#FEF9C3' },
+      { name: 'Bạn Gà', key: 'chicken', bg: '#FDF2F8' },
+      { name: 'Ô Tô', key: 'car', bg: '#E0F2FE' },
+      { name: 'Bóng Tròn', key: 'ball', bg: '#FEF3C7' },
+    ].filter((d) => !d.name.toLowerCase().includes(targetName.toLowerCase()));
+
+    const correctChoice = {
+      id: `choice_${Date.now()}_0`,
+      name: targetName,
+      isCorrect: true,
+      suggestedSvgKey: targetSvgKey || 'star',
+      bgColor: targetBg || '#FEF3C7',
+    };
+
+    const distractorChoices = distractors.slice(0, safeChoicesCount - 1).map((d, dIdx) => ({
+      id: `choice_${Date.now()}_${dIdx + 1}`,
+      name: d.name,
+      isCorrect: false,
+      suggestedSvgKey: d.key,
+      bgColor: d.bg,
+    }));
+
+    return [correctChoice, ...distractorChoices];
+  };
 
   // 1. SPECIFIC ITEM CHECK: Tomato / Quả Cà Chua
   if (lower.includes('cà chua') || lower.includes('tomato')) {
@@ -361,10 +402,14 @@ function generateFallbackGame(topic: string, ageRange: string, count: number, ga
       gameType: gameType || 'listen_find',
       objectives:
         goal || `Dạy trẻ nhận biết quả cà chua: màu đỏ tươi, dáng tròn xoe, có cuống lá xanh và vỏ mịn màng.`,
-      choicesCount: ageRange === '12–18 tháng' ? 2 : 3,
+      choicesCount: safeChoicesCount,
+      defaultChoiceCount: safeChoicesCount,
+      shuffleChoices: true,
+      answerType: 'single' as 'single' | 'multiple',
       items: tomatoQuestions.slice(0, needed).map((it, idx) => ({
         ...it,
         id: `item_tomato_${Date.now()}_${idx}`,
+        choices: getChoicesForItem(it.name, it.suggestedSvgKey, it.bgColor),
       })),
     };
   }
@@ -402,10 +447,14 @@ function generateFallbackGame(topic: string, ageRange: string, count: number, ga
       ageRange: ageRange || '12–24 tháng',
       gameType: gameType || 'listen_find',
       objectives: goal || 'Dạy trẻ nhận biết củ cà rốt màu cam, rèn phát âm từ đơn.',
-      choicesCount: ageRange === '12–18 tháng' ? 2 : 3,
+      choicesCount: safeChoicesCount,
+      defaultChoiceCount: safeChoicesCount,
+      shuffleChoices: true,
+      answerType: 'single' as 'single' | 'multiple',
       items: carrotQuestions.map((it, idx) => ({
         ...it,
         id: `item_carrot_${Date.now()}_${idx}`,
+        choices: getChoicesForItem(it.name, it.suggestedSvgKey, it.bgColor),
       })),
     };
   }
@@ -425,6 +474,7 @@ function generateFallbackGame(topic: string, ageRange: string, count: number, ga
   const selectedItems = baseItems.slice(0, neededCount).map((item, idx) => ({
     ...item,
     id: `item_gen_${Date.now()}_${idx}`,
+    choices: getChoicesForItem(item.name, item.suggestedSvgKey, item.bgColor),
   }));
 
   const title = `Bé Khám Phá: ${rawTopic || 'Thế Giới Quanh Bé'}`;
@@ -438,7 +488,10 @@ function generateFallbackGame(topic: string, ageRange: string, count: number, ga
     ageRange: ageRange || '12–24 tháng',
     gameType: gameType || 'listen_find',
     objectives,
-    choicesCount: ageRange === '12–18 tháng' ? 2 : 3,
+    choicesCount: safeChoicesCount,
+    defaultChoiceCount: safeChoicesCount,
+    shuffleChoices: true,
+    answerType: 'single' as 'single' | 'multiple',
     items: selectedItems,
   };
 }
@@ -446,14 +499,30 @@ function generateFallbackGame(topic: string, ageRange: string, count: number, ga
 /**
  * AI GAME BUILDER ENDPOINT:
  * Generates preschool games from teacher prompt in 1 second.
+ * Supports configurable choicesCount (2, 3, 4, etc.) and answerType (single/multiple).
  */
 app.post('/api/ai-game', async (req, res) => {
   try {
-    const { topic, ageRange = '12–24 tháng', questionCount = 4, gameType = 'listen_find', goal = '' } = req.body;
+    const {
+      topic,
+      ageRange = '12–24 tháng',
+      questionCount = 4,
+      gameType = 'listen_find',
+      goal = '',
+      choicesCount = 2,
+      answerType = 'single',
+      shuffleChoices = true,
+    } = req.body;
+
+    const safeChoicesCount = Math.max(2, Math.min(Number(choicesCount) || 2, 6));
 
     const apiKey = process.env.GEMINI_API_KEY;
     if (!apiKey) {
       const fallback = generateFallbackGame(topic, ageRange, questionCount, gameType, goal);
+      fallback.choicesCount = safeChoicesCount;
+      fallback.defaultChoiceCount = safeChoicesCount;
+      fallback.answerType = answerType;
+      fallback.shuffleChoices = shuffleChoices;
       return res.json({ game: fallback, source: 'preset_generator' });
     }
 
@@ -466,6 +535,8 @@ Hãy thiết kế một hoạt động trò chơi giáo dục mầm non hoàn ch
 - Số lượng đối tượng/câu hỏi: ${questionCount}
 - Dạng trò chơi: ${gameType}
 - Mục tiêu: ${goal || 'Phát triển nhận thức, ngôn ngữ và vận động'}
+- BẮT BUỘC SỐ LƯỢNG ĐÁP ÁN MỖI CÂU HỎI: ĐÚNG ${safeChoicesCount} LỰA CHỌN (mỗi câu hỏi phải có chính xác ${safeChoicesCount} đáp án trong mảng 'choices', gồm 1 đáp án đúng isCorrect: true và ${safeChoicesCount - 1} đáp án sai/đối tượng phân tán quen thuộc isCorrect: false. TUYỆT ĐỐI không tự ý sinh số lượng khác ${safeChoicesCount}).
+- Kiểu đáp án: ${answerType === 'multiple' ? 'Nhiều đáp án đúng' : 'Duy nhất một đáp án đúng'}.
 
 LƯU Ý CỰC KỲ QUAN TRỌNG:
 Chủ đề do giáo viên yêu cầu là: "${topic}".
@@ -485,7 +556,10 @@ Trả về ĐÚNG DUY NHẤT một chuỗi JSON hợp lệ (không kèm markdown
   "ageRange": "${ageRange}",
   "gameType": "${gameType}",
   "objectives": "Mục tiêu cụ thể về nhận thức, ngôn ngữ và thể chất",
-  "choicesCount": ${ageRange === '12–18 tháng' ? 2 : 3},
+  "choicesCount": ${safeChoicesCount},
+  "defaultChoiceCount": ${safeChoicesCount},
+  "answerType": "${answerType}",
+  "shuffleChoices": ${shuffleChoices},
   "items": [
     {
       "name": "Tên đối tượng đúng (ví dụ: Quả Cà Chua)",
@@ -496,7 +570,21 @@ Trả về ĐÚNG DUY NHẤT một chuỗi JSON hợp lệ (không kèm markdown
       "praisePhrase": "Giỏi quá! Bé tìm đúng Quả Cà Chua rồi!",
       "encouragementPhrase": "Con nghe lại và thử lại nhé!",
       "bgColor": "#FEE2E2",
-      "suggestedSvgKey": "tomato|apple|banana|orange|watermelon|carrot|cat|dog|duck|chicken|cow|sheep|car|airplane|train|sun|flower|ball|star"
+      "suggestedSvgKey": "tomato|apple|banana|orange|watermelon|carrot|cat|dog|duck|chicken|cow|sheep|car|airplane|train|sun|flower|ball|star",
+      "choices": [
+        {
+          "name": "Tên đáp án đúng",
+          "isCorrect": true,
+          "suggestedSvgKey": "tomato",
+          "bgColor": "#FEE2E2"
+        },
+        {
+          "name": "Tên đáp án sai 1",
+          "isCorrect": false,
+          "suggestedSvgKey": "apple",
+          "bgColor": "#FEF3C7"
+        }
+      ]
     }
   ]
 }`;
@@ -526,11 +614,62 @@ Trả về ĐÚNG DUY NHẤT một chuỗi JSON hợp lệ (không kèm markdown
       if (responseText) {
         const parsed = JSON.parse(responseText);
         parsed.puzzlePieces = 4;
-        // Inject IDs
-        parsed.items = (parsed.items || []).map((it: any, idx: number) => ({
-          ...it,
-          id: `item_ai_${Date.now()}_${idx}`,
-        }));
+        parsed.choicesCount = safeChoicesCount;
+        parsed.defaultChoiceCount = safeChoicesCount;
+        parsed.shuffleChoices = shuffleChoices;
+        parsed.answerType = answerType;
+
+        // Inject IDs and ensure valid choices structure
+        parsed.items = (parsed.items || []).map((it: any, idx: number) => {
+          let choices = it.choices || [];
+          if (!Array.isArray(choices) || choices.length !== safeChoicesCount) {
+            // Guarantee safeChoicesCount
+            const targetName = it.name || `Đối tượng ${idx + 1}`;
+            const correctOne = {
+              id: `choice_${Date.now()}_0`,
+              name: targetName,
+              isCorrect: true,
+              imageUrl: '',
+              suggestedSvgKey: it.suggestedSvgKey || 'star',
+              bgColor: it.bgColor || '#FEF3C7',
+            };
+            const distractors = [
+              { name: 'Quả Táo', key: 'apple', bg: '#FEE2E2' },
+              { name: 'Quả Chuối', key: 'banana', bg: '#FEF9C3' },
+              { name: 'Quả Cam', key: 'orange', bg: '#FFEDD5' },
+              { name: 'Bạn Mèo', key: 'cat', bg: '#FFF7ED' },
+              { name: 'Bạn Chó', key: 'dog', bg: '#FEF3C7' },
+            ].filter((d) => !d.name.toLowerCase().includes(targetName.toLowerCase()));
+
+            choices = [
+              correctOne,
+              ...distractors.slice(0, safeChoicesCount - 1).map((d, dIdx) => ({
+                id: `choice_${Date.now()}_${dIdx + 1}`,
+                name: d.name,
+                isCorrect: false,
+                imageUrl: '',
+                suggestedSvgKey: d.key,
+                bgColor: d.bg,
+              })),
+            ];
+          } else {
+            choices = choices.map((c: any, cIdx: number) => ({
+              id: `choice_${Date.now()}_${cIdx}`,
+              name: c.name || `Lựa chọn ${cIdx + 1}`,
+              isCorrect: !!c.isCorrect,
+              imageUrl: c.imageUrl || '',
+              suggestedSvgKey: c.suggestedSvgKey || 'star',
+              bgColor: c.bgColor || (c.isCorrect ? '#FEF3C7' : '#F1F5F9'),
+            }));
+          }
+
+          return {
+            ...it,
+            id: `item_ai_${Date.now()}_${idx}`,
+            choices,
+          };
+        });
+
         return res.json({ game: parsed, source: 'gemini_ai' });
       }
     } catch (aiErr) {
@@ -538,6 +677,10 @@ Trả về ĐÚNG DUY NHẤT một chuỗi JSON hợp lệ (không kèm markdown
     }
 
     const fallback = generateFallbackGame(topic, ageRange, questionCount, gameType, goal);
+    fallback.choicesCount = safeChoicesCount;
+    fallback.defaultChoiceCount = safeChoicesCount;
+    fallback.shuffleChoices = shuffleChoices;
+    fallback.answerType = answerType;
     return res.json({ game: fallback, source: 'preset_generator' });
   } catch (err: any) {
     console.error('AI Game endpoint error:', err);

@@ -46,6 +46,7 @@ import { GameScreen, PlayGameMode } from './components/GameScreen.tsx';
 import { TeacherPedagogyHub } from './components/pedagogy/TeacherPedagogyHub.tsx';
 import { ToddlerActivityCanvas } from './components/pedagogy/ToddlerActivityCanvas.tsx';
 import { ObservationForm } from './components/pedagogy/ObservationForm.tsx';
+import { LessonPlanLibrary } from './components/LessonPlanLibrary.tsx';
 import { PreschoolActivity } from './data/activityTypes.ts';
 import { ACTIVITIES_12_18 } from './data/activities-12-18.ts';
 import { ACTIVITIES_18_24 } from './data/activities-18-24.ts';
@@ -58,6 +59,7 @@ export default function App() {
     | 'pedagogy_activity'
     | 'pedagogy_observation'
     | 'dashboard'
+    | 'lesson_plan_library'
     | 'game'
     | 'teacher_setup'
     | 'playing'
@@ -84,12 +86,14 @@ export default function App() {
     questionCount: number;
     difficulty: 'easy' | 'medium' | 'hard';
     soundEnabled: boolean;
+    shuffleChoices?: boolean;
   }>({
     topicId: 'animals',
     gameMode: 'listen_find',
     questionCount: 5,
     difficulty: 'medium',
     soundEnabled: true,
+    shuffleChoices: true,
   });
 
   // Core Data State
@@ -409,6 +413,7 @@ export default function App() {
           questionCount={sessionConfig.questionCount}
           difficulty={sessionConfig.difficulty}
           soundEnabled={sessionConfig.soundEnabled}
+          shuffleChoices={sessionConfig.shuffleChoices}
           onGoHome={() => setCurrentView('home')}
           onChangeTopic={() => setCurrentView('teacher_setup')}
         />
@@ -424,6 +429,7 @@ export default function App() {
           }}
           onOpenMyGames={() => setIsTopicSelectorOpen(true)}
           onOpenLessonPlans={() => setIsLessonPlanOpen(true)}
+          onOpenLessonPlanLibrary={() => setCurrentView('lesson_plan_library')}
           onOpenLibrary={() => setIsLibraryOpen(true)}
           onOpenChildren={() => setIsChildrenOpen(true)}
           onOpenReports={() => setIsReportsOpen(true)}
@@ -436,6 +442,14 @@ export default function App() {
           onDeleteGame={handleDeleteGame}
           onExportBackup={() => exportGamesToJson(games)}
           onImportBackup={handleImportBackup}
+        />
+      ) : currentView === 'lesson_plan_library' ? (
+        <LessonPlanLibrary
+          onBack={() => setCurrentView('dashboard')}
+          onLaunchGame={(gameId) => {
+            const found = games.find((g) => g.id === gameId) || games[0];
+            if (found) handlePlayGame(found);
+          }}
         />
       ) : (
         /* TODDLER MAIN PLAYING CANVAS (LEGACY CUSTOM GAME MODE) */

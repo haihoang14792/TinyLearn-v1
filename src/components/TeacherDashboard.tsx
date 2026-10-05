@@ -32,6 +32,7 @@ interface TeacherDashboardProps {
   onOpenAIGameBuilder: (initialTopic?: string) => void;
   onOpenMyGames: () => void;
   onOpenLessonPlans: () => void;
+  onOpenLessonPlanLibrary?: () => void;
   onOpenLibrary: () => void;
   onOpenChildren: () => void;
   onOpenReports: () => void;
@@ -51,6 +52,7 @@ export const TeacherDashboard: React.FC<TeacherDashboardProps> = ({
   onOpenAIGameBuilder,
   onOpenMyGames,
   onOpenLessonPlans,
+  onOpenLessonPlanLibrary,
   onOpenLibrary,
   onOpenChildren,
   onOpenReports,
@@ -246,7 +248,7 @@ export const TeacherDashboard: React.FC<TeacherDashboardProps> = ({
 
           {/* Tile 3: AI Lesson Plans */}
           <button
-            onClick={onOpenLessonPlans}
+            onClick={onOpenLessonPlanLibrary || onOpenLessonPlans}
             className="group p-5 bg-gradient-to-br from-emerald-500/10 via-emerald-100/50 to-white rounded-3xl border-2 border-emerald-200 hover:border-emerald-400 text-left transition-all hover:shadow-lg active:scale-98 flex flex-col justify-between cursor-pointer"
           >
             <div>
@@ -255,18 +257,18 @@ export const TeacherDashboard: React.FC<TeacherDashboardProps> = ({
               </div>
               <div className="flex items-center justify-between">
                 <h3 className="text-lg font-black text-slate-900 group-hover:text-emerald-900 transition-colors">
-                  📝 Giáo Án Mầm Non AI
+                  📘 Kho Giáo Án Nhà Trẻ
                 </h3>
                 <span className="px-2 py-0.5 rounded-full text-[11px] font-black bg-emerald-100 text-emerald-800">
-                  Chuẩn Bộ GD
+                  60 bài chuẩn
                 </span>
               </div>
               <p className="text-xs font-semibold text-slate-600 mt-1 leading-relaxed">
-                Tự động sinh giáo án 4 bước hoàn chỉnh từ trò chơi, hỗ trợ chỉnh sửa, in ấn và xuất file PDF/Word.
+                Giáo án 2 cột chuẩn Bộ GD&ĐT (12–18m & 18–24m), tích hợp trình chiếu tiết dạy điện tử không ép buộc trẻ.
               </p>
             </div>
             <div className="mt-4 flex items-center gap-1.5 text-xs font-black text-emerald-800">
-              <span>Xem & in giáo án</span>
+              <span>Mở kho giáo án & tiết dạy</span>
               <ArrowRight className="w-3.5 h-3.5 group-hover:translate-x-1 transition-transform" />
             </div>
           </button>

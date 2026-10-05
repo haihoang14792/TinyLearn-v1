@@ -9,6 +9,15 @@ export type GameType =
   | 'knowledge_bubbles' // Bong bóng kiến thức (chạm bong bóng chứa đáp án)
   | 'color_match'; // Chọn màu sắc (chọn vật phẩm đúng màu yêu cầu)
 
+export interface TopicChoice {
+  id: string;
+  name: string; // Tên hiển thị: Quả chuối, Con mèo, v.v.
+  label?: string;
+  imageUrl: string;
+  bgColor?: string;
+  isCorrect: boolean; // Đúng / Sai
+}
+
 export interface TopicItem {
   id: string;
   name: string; // Tên đối tượng: Mèo, Chó, Vịt, Táo, Đỏ...
@@ -24,6 +33,9 @@ export interface TopicItem {
   readingSentence?: string; // Câu đọc cho trẻ: "Đây là con mèo. Mèo kêu meo meo."
   praisePhrase?: string; // Câu khen: "Giỏi quá! Bé tìm đúng bạn Mèo rồi!"
   encouragementPhrase?: string; // Câu động viên: "Bé nghe lại tiếng kêu và thử lại nhé!"
+  // Cho phép mỗi câu hỏi có danh sách đáp án riêng biệt (2-6 đáp án)
+  choices?: TopicChoice[];
+  shuffleChoices?: boolean;
 }
 
 export interface TopicGame {
@@ -36,7 +48,10 @@ export interface TopicGame {
   description: string;
   objectives?: string; // Mục tiêu hoạt động: nhận biết, ngôn ngữ, vận động
   isBuiltIn?: boolean;
-  choicesCount: 2 | 3; // 2 hoặc 3 lựa chọn
+  choicesCount: number; // Số lượng lựa chọn mặc định (2, 3, 4, v.v.)
+  defaultChoiceCount?: number;
+  shuffleChoices?: boolean; // Xáo trộn vị trí đáp án khi chơi
+  answerType?: 'single' | 'multiple'; // Một đáp án đúng hay nhiều đáp án đúng
   puzzlePieces?: 2 | 3 | 4 | 6; // Số mảnh ghép cho trò ghép tranh (mặc định 4)
   items: TopicItem[];
   createdAt: number;
