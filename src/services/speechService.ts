@@ -391,9 +391,12 @@ export function speakVietnamese(rawText: string, options: SpeakOptions = {}): bo
         utterance.voice = anyViVoice;
         utterance.lang = anyViVoice.lang || 'vi-VN';
       } else {
-        // Fallback: don't block speech if getVoices() is empty or hasn't loaded!
-        // Setting lang to 'vi-VN' allows Chrome/Edge/Safari/Android to synthesize via OS/Network TTS
-        utterance.lang = 'vi-VN';
+        // IMPORTANT: Never allow an English voice to read Vietnamese text!
+        console.warn(
+          '[TinyLearn Speech] Không tìm thấy giọng tiếng Việt trên thiết bị. Bỏ qua Web Speech để tránh phát âm sai bằng giọng tiếng Anh.'
+        );
+        options.onError?.(new Error('Thiết bị chưa có giọng đọc tiếng Việt.'));
+        return false;
       }
     }
 
