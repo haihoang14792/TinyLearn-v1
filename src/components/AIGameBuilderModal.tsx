@@ -36,6 +36,45 @@ const PRESET_ICONS = [
   'car', 'bus', 'train', 'airplane', 'ball', 'star', 'sun', 'flower', 'heart',
 ];
 
+const getPedagogicalGoalForTopic = (t: string, age: string) => {
+  const raw = (t || '').trim().toLowerCase();
+  if (!raw) return `Phát triển nhận thức, mở rộng vốn từ và rèn luyện kỹ năng quan sát, vận động cho trẻ ${age}.`;
+  if (raw.includes('chuối')) {
+    return `Dạy trẻ nhận biết quả chuối chín vàng, dáng cong cong, ruột mềm ngọt thơm và tập vận động bóc vỏ măm măm.`;
+  }
+  if (raw.includes('táo')) {
+    return `Dạy trẻ nhận biết quả táo tròn xoe màu đỏ, vỏ láng bóng, vị giòn ngọt và phát triển kỹ năng quan sát.`;
+  }
+  if (raw.includes('cam')) {
+    return `Dạy trẻ nhận biết quả cam tròn xoe, màu cam tươi tắn, nhiều múi mọng nước thơm mát.`;
+  }
+  if (raw.includes('cà chua')) {
+    return `Dạy trẻ nhận biết quả cà chua đỏ mọng, tròn xoe, có cuống lá xanh và vỏ mịn màng.`;
+  }
+  if (raw.includes('cà rốt')) {
+    return `Dạy trẻ nhận biết củ cà rốt màu cam, dáng dài có chùm lá xanh, rèn luyện phát âm từ đơn.`;
+  }
+  if (raw.includes('mèo')) {
+    return `Bé nghe tiếng kêu meo meo, nhận biết bạn mèo đáng yêu và bắt chước động tác mèo rửa mặt.`;
+  }
+  if (raw.includes('chó') || raw.includes('cún')) {
+    return `Bé nhận biết bạn chó kêu gâu gâu vẫy đuôi mừng, tập phát âm và vận động vui vẻ.`;
+  }
+  if (raw.includes('gà')) {
+    return `Bé nghe tiếng cục tác, nhận biết bạn gà có mào đỏ tươi và đẻ trứng vàng.`;
+  }
+  if (raw.includes('vịt')) {
+    return `Bé nhận biết bạn vịt kêu cạp cạp, bơi lội dưới ao và vẫy đôi cánh nhỏ.`;
+  }
+  if (raw.includes('xe') || raw.includes('ô tô') || raw.includes('giao thông')) {
+    return `Bé nhận biết phương tiện giao thông, nghe tiếng còi bíp bíp và tập động tác lái xe vô lăng.`;
+  }
+  if (raw.includes('màu')) {
+    return `Bé nhận biết và phân biệt các màu sắc cơ bản tươi sáng, phát triển thị giác và ngôn ngữ.`;
+  }
+  return `Giúp trẻ ${age} nhận biết ${t.trim()}, mở rộng vốn từ vựng và vận động tương tác vui nhộn.`;
+};
+
 export const AIGameBuilderModal: React.FC<AIGameBuilderModalProps> = ({
   isOpen,
   initialTopic = '',
@@ -44,11 +83,11 @@ export const AIGameBuilderModal: React.FC<AIGameBuilderModalProps> = ({
   onSaveAndPublish,
 }) => {
   // Setup state
-  const [topic, setTopic] = useState(initialTopic || 'Con vật đáng yêu');
+  const [topic, setTopic] = useState(initialTopic || 'Quả Chuối');
   const [ageRange, setAgeRange] = useState<'12–18 tháng' | '18–24 tháng' | '12–24 tháng'>('12–18 tháng');
   const [questionCount, setQuestionCount] = useState(4);
   const [gameType, setGameType] = useState<GameType>('listen_find');
-  const [goal, setGoal] = useState('Bé nghe âm thanh nhận biết con vật và bắt chước động tác mô phỏng.');
+  const [goal, setGoal] = useState('');
 
   // Choice count configuration
   const [choiceMode, setChoiceMode] = useState<'2' | '3' | '4' | 'custom'>('2');
@@ -91,15 +130,17 @@ export const AIGameBuilderModal: React.FC<AIGameBuilderModalProps> = ({
   const handleGenerate = async () => {
     setIsLoading(true);
     try {
+      const activeTopic = topic.trim() || 'Quả Chuối';
+      const effectiveGoal = goal.trim() || getPedagogicalGoalForTopic(activeTopic, ageRange);
       const response = await fetch('/api/ai-game', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          topic: topic.trim() || 'Con vật đáng yêu',
+          topic: activeTopic,
           ageRange,
           questionCount,
           gameType,
-          goal,
+          goal: effectiveGoal,
           choicesCount: effectiveChoicesCount,
           answerType,
           shuffleChoices,
@@ -449,17 +490,50 @@ export const AIGameBuilderModal: React.FC<AIGameBuilderModalProps> = ({
           {!generatedGame && (
             <div className="space-y-6">
               {/* 1. Tên chủ đề bài học */}
-              <div className="space-y-1.5">
-                <label className="block text-sm font-extrabold text-slate-800">
-                  1. Tên chủ đề bài học:
-                </label>
+              <div className="space-y-2">
+                <div className="flex items-center justify-between">
+                  <label className="block text-sm font-extrabold text-slate-800">
+                    1. Tên chủ đề bài học:
+                  </label>
+                  <span className="text-[11px] font-bold text-amber-700">
+                    Bé nhận biết từng đối tượng riêng biệt hoặc theo nhóm
+                  </span>
+                </div>
                 <input
                   type="text"
                   value={topic}
                   onChange={(e) => setTopic(e.target.value)}
-                  placeholder="Ví dụ: Con vật nuôi trong nhà, Trái cây ngọt thơm, Màu sắc quanh bé..."
+                  placeholder="Ví dụ: Quả Chuối, Con Mèo, Quả Cam, Xe Ô Tô, Quả Táo..."
                   className="w-full px-4 py-3.5 text-base font-bold text-slate-900 bg-amber-50/40 border-2 border-amber-200 rounded-2xl focus:outline-hidden focus:border-amber-500 focus:bg-white transition-all shadow-xs"
                 />
+
+                {/* Quick Topic Chips */}
+                <div className="flex flex-wrap items-center gap-1.5 pt-0.5">
+                  <span className="text-[11px] font-bold text-slate-500">Chủ đề gợi ý:</span>
+                  {[
+                    { label: '🍌 Quả Chuối', val: 'Quả Chuối' },
+                    { label: '🍎 Quả Táo', val: 'Quả Táo' },
+                    { label: '🍊 Quả Cam', val: 'Quả Cam' },
+                    { label: '🍅 Quả Cà Chua', val: 'Quả Cà Chua' },
+                    { label: '🥕 Củ Cà Rốt', val: 'Củ Cà Rốt' },
+                    { label: '🐱 Bạn Mèo', val: 'Bạn Mèo' },
+                    { label: '🐶 Bạn Chó', val: 'Bạn Chó' },
+                    { label: '🚗 Xe Ô Tô', val: 'Xe Ô Tô' },
+                  ].map((chip) => (
+                    <button
+                      key={chip.val}
+                      type="button"
+                      onClick={() => setTopic(chip.val)}
+                      className={`px-2.5 py-1 rounded-full text-xs font-bold transition-all cursor-pointer ${
+                        topic.toLowerCase() === chip.val.toLowerCase()
+                          ? 'bg-amber-400 text-amber-950 font-black shadow-xs scale-102'
+                          : 'bg-white hover:bg-amber-100 text-amber-900 border border-amber-200'
+                      }`}
+                    >
+                      {chip.label}
+                    </button>
+                  ))}
+                </div>
               </div>
 
               {/* 2. Nhóm tuổi & Số lượng câu hỏi */}
